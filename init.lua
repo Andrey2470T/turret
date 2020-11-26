@@ -174,7 +174,7 @@ minetest.register_node("turret:turret", {
         --[[local timer = minetest.get_node_timer(pos)
         timer:start(1)]]
                                         
-        local found_objs = minetest.get_objects_inside_radius(pos, 20)
+        --[[local found_objs = minetest.get_objects_inside_radius(pos, 20)
         local nearby_players = {}
         if found_objs then
             for _, obj in ipairs(found_objs) do
@@ -186,18 +186,28 @@ minetest.register_node("turret:turret", {
             local random_player = nearby_players[math.random(1, #nearby_players)]
                                         
             turret.spread_ray(pos, turret.get_turret_unitdir(pos), random_player:get_pos())
-        end
+        end]]
+        turret.spread_ray(pos, turret.get_turret_unitdir(pos))
+        
+        local timer = minetest.get_node_timer(pos)
+        timer:start(0.05)
     end,
     on_destruct = function(pos)
         turret.delete_ray(pos)
-    end--[[,
+    end,
     on_timer = function(pos, elapsed)
-        if not target_objs[pos] then
-            turret.release(pos, elapsed)
+        local ray_dir = minetest.deserialize(minetest.get_meta(pos):get_string("ray_dir"))
+        --minetest.debug("target_objs[pos]: " .. tostring(target_objs[pos]))
+        --minetest.debug("angle: " .. math.deg(vector.angle(turret.get_turret_unitdir(pos), ray_dir)))
+        local dir = turret.get_turret_unitdir(pos)
+        dir.y = dir.y + 0.175
+        if not target_objs[pos] and not vector.are_co_directional(dir, ray_dir) then
+            --minetest.debug("turret.release():Returning to the original orientation...")
+            turret.release(pos)
         end
                             
-        turret.direct_ray_to_entity(pos, elapsed)
+        turret.direct_ray_to_entity(pos)
                                         
         return true
-    end]]
+    end
 })

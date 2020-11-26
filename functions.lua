@@ -47,10 +47,9 @@ local ANGLE_SPEED_DIRECT    = 15    -- in degrees
     meta:set_string("ray_segments_list", minetest.serialize(ray_segments_list))
 end]]
     
-turret.spread_ray = function(pos, cur_ray_dir, target_pos)
-    pos = vector.new(pos.x, pos.y+0.175, pos.z)
-    cur_ray_dir = vector.normalize(cur_ray_dir)
-    local new_ray_dir = vector.normalize(vector.subtract(target_pos, pos))
+turret.spread_ray = function(pos, target_dir)
+    --pos.y = pos.y + 0.175
+    target_dir = vector.normalize(target_dir)
     
     --[[local yaw = minetest.dir_to_yaw(new_ray_dir)+math.pi/2
     
@@ -61,12 +60,15 @@ turret.spread_ray = function(pos, cur_ray_dir, target_pos)
 
     
     local ray_segments_list = {}
-    local ray_rot = vector.dir_to_rotation(new_ray_dir)
+    local ray_rot = vector.dir_to_rotation(target_dir)
     
+    --local first_ray_seg_pos = vector.add(pos, vector.divide(target_dir, 4))
     local next_obj = minetest.add_entity(pos, "turret:ray")
     next_obj:set_properties({textures={"turret_ray_seg.png"}})
     next_obj:set_rotation({x=ray_rot.x, y=ray_rot.y, z=0})
     
+    --minetest.debug("ANGLE: " .. math.deg(vector.angle(target_dir, vector.subtract(next_obj:get_pos(), pos))))
+     
     ray_segments_list[#ray_segments_list+1] = pos
     
     --[[next_obj = minetest.add_entity(pos, "turret:ray")
@@ -78,9 +80,8 @@ turret.spread_ray = function(pos, cur_ray_dir, target_pos)
     --[[next_obj:set_rotation({x=pitch, y=yaw, z=0})
     next_obj2:set_rotation({x=pitch+math.pi/2, y=yaw, z=0})]]
     
-    local next_pos = vector.add(pos, new_ray_dir)
+    local next_pos = vector.add(pos, target_dir)
     local next_node = minetest.get_node(next_pos)
-    local counter = 1
     
     while next_node.name == "air" do
         next_obj = minetest.add_entity(next_pos, "turret:ray")
@@ -92,15 +93,19 @@ turret.spread_ray = function(pos, cur_ray_dir, target_pos)
         next_obj:set_yaw(ray_rot.y+math.pi/2)
         ray_segments_list[#ray_segments_list+1] = next_pos]]
         
-        next_pos = vector.add(next_pos, new_ray_dir)
+        next_pos = vector.add(next_pos, target_dir)
         next_node = minetest.get_node(next_pos)
+        
+    
+        --minetest.debug("ANGLE: " .. math.deg(vector.angle(target_dir, vector.subtract(next_obj:get_pos(), pos))))
     end
     
     local meta = minetest.get_meta(pos)
     meta:set_string("ray_segments_list", minetest.serialize(ray_segments_list))
+    meta:set_string("ray_dir", minetest.serialize(target_dir))
 end
     
-turret.get_ray_segment_from_pos = function(pos)
+--[[turret.get_ray_segment_from_pos = function(pos)
     local objs = minetest.get_objects_inside_radius(pos, 0.1)
     
     if not objs then return end
@@ -112,7 +117,7 @@ turret.get_ray_segment_from_pos = function(pos)
     end
     
     return
-end
+end]]
 
 --[[turret.spread_ray = function(pos, unit_ray_dir, rot_axis, rot_step)
     rot_step = rot_step or 0.0
@@ -266,7 +271,7 @@ end
 end]]
 turret.get_turret_unitdir = function(pos)
     local node = minetest.get_node(pos)
-    local u_dir_vec = vector.rotate(minetest.facedir_to_dir(node.param2), {x=0, y=math.rad(180), z=0})
+    local u_dir_vec = vector.rotate(minetest.facedir_to_dir(node.param2), {x=0, y=math.pi, z=0})
     
     return u_dir_vec
 end
@@ -276,7 +281,7 @@ turret.is_obj_inside_field_of_sight = function(pos, obj_pos)
     
     local u_dir_vec = turret.get_turret_unitdir(pos)
     
-    local rel_obj_pos = vector.subtract(obj_pos, pos)
+    local rel_obj_pos = vector.subtract(obj_pos, {x=pos.x, y=pos.y+0.175, z=pos.z})
     
     return vector.length(rel_obj_pos) <= 20 and vector.angle(u_dir_vec, rel_obj_pos) <= math.rad(45)
 end
@@ -292,75 +297,87 @@ vector.are_co_directional = function(vec1, vec2)
     return vector.angle(vec1, vec2) == 0
 end
     
-turret.direct_ray_to_entity = function(pos, elapsed)
+turret.direct_ray_to_entity = function(pos)
     local meta = minetest.get_meta(pos)
-    local target_obj = target_objs[pos]
+    local strpos = minetest.pos_to_string(pos)
+    local target_obj = target_objs[strpos]
+    local eye_pos = {x=pos.x, y=pos.y+0.175, z=pos.z}
     
     local ray_seg_list = minetest.deserialize(meta:get_string("ray_segments_list"))
     local u_dir_vec = turret.get_turret_unitdir(pos)
+    local cur_ray_dir = minetest.deserialize(meta:get_string("ray_dir"))
     if not target_obj then
-        local nearby_objs = minetest.get_objects_inside_radius(pos, 20)
+        local nearby_objs = minetest.get_objects_inside_radius(eye_pos, 20)
         local hit_objs = {}
     
         for _, obj in ipairs(nearby_objs) do
-            local view_ang = vector.angle(u_dir_vec, vector.subtract(obj:get_pos(), pos))
-            if obj:is_player() and view_ang <= math.rad(45) then
+            local view_ang = vector.angle(u_dir_vec, vector.subtract(obj:get_pos(), eye_pos))
+            if obj:is_player() and view_ang <= math.pi/4 then
                 hit_objs[#hit_objs+1] = obj
             end
         end
         
-        if #hit_objs == 0 then return end
+        if #hit_objs == 0 then 
+            --minetest.debug("Current ray dir: x: " .. ray_seg_list[1].x .. ", y: " .. ray_seg_list[1].y .. ", z: " .. ray_seg_list[1].z)
+            turret.delete_ray(pos)
+            turret.spread_ray(pos, vector.normalize(cur_ray_dir))
+            local rseg_l = minetest.deserialize(meta:get_string("ray_segments_list"))
+            --minetest.debug("Updated ray dir: x: " .. rseg_l[1].x .. ", y: " .. rseg_l[1].y .. ", z: " .. rseg_l[1].z)
+            
+            return 
+        end
         
         local rand_obj = hit_objs[math.random(1, #hit_objs)]
-        target_objs[pos] = rand_obj
+        target_objs[strpos] = rand_obj
     else
         local is_object_inside_view_radius = turret.is_obj_inside_field_of_sight(pos, target_obj:get_pos())
         if not is_object_inside_view_radius then
-            target_objs[pos] = nil
+            target_objs[strpos] = nil
             return
         end
                                  
-        if vector.are_co_directional(vector.subtract(target_objs[pos]:get_pos(), pos), vector.subtract(ray_seg_list[1], pos)) then
+        if vector.are_co_directional(vector.subtract(target_obj:get_pos(), eye_pos), cur_ray_dir) then
             return true
         end
     end
-                            
-    local rel_tpos = vector.subtract(target_objs[pos]:get_pos(), pos)
-    local rel_rseg_pos = vector.subtract(ray_seg_list[1], pos)
-    local pivot_vec = vector.cross(rel_rseg_pos, rel_tpos)
-    local ang = vector.angle(rel_rseg_pos, rel_tpos)
-             
-    local new_rseg_vec
-    if ang < math.rad(ANGLE_SPEED_DIRECT) then
-        new_rseg_vec = vector.rotate_around_axis(rel_rseg_pos, pivot_vec, ang)
-    end
-                                 
-    new_rseg_vec = vector.rotate_around_axis(rel_rseg_pos, pivot_vec, math.rad(ANGLE_SPEED_DIRECT))
     
+    local rel_tpos = vector.subtract(target_obj:get_pos(), eye_pos)
+    local pivot_vec = vector.cross(rel_tpos, cur_ray_dir)
+    local ang = vector.angle(cur_ray_dir, rel_tpos)
+             
+    local new_ray_dir
+    if ang < math.rad(ANGLE_SPEED_DIRECT) then
+        new_ray_dir = vector.rotate_around_axis(cur_ray_dir, pivot_vec, ang)
+    else
+        new_ray_dir = vector.rotate_around_axis(cur_ray_dir, pivot_vec, math.rad(ANGLE_SPEED_DIRECT))
+    end
+        
     turret.delete_ray(pos)
-    turret.spread_ray(pos, vector.rotation(u_dir_vec, new_rseg_vec))
+    turret.spread_ray(pos, vector.normalize(new_ray_dir))
 end
                                  
-turret.release = function(pos, elapsed)
+turret.release = function(pos)
+    if target_objs[pos] then return end
+    
+    --minetest.debug("turret.release(): continue to return...")
     local u_dir_vec = turret.get_turret_unitdir(pos)
-    
-    local ray_seg_list = minetest.deserialize(minetest.get_meta(pos):get_string("ray_segments_list"))
-    local rel_ray_seg_pos = vector.subtract(ray_seg_list[1], pos)
-    local ang = vector.angle(u_dir_vec, rel_ray_seg_pos)
-    
+    --minetest.debug("turret.release(): continue1...")
     local meta = minetest.get_meta(pos)
-    if ang == 0 then
+    local ray_seg_list = minetest.deserialize(meta:get_string("ray_segments_list"))
+    local rel_ray_seg_dir = minetest.deserialize(meta:get_string("ray_dir"))
+    --minetest.debug("rel_ray_seg_dir: " .. minetest.pos_to_string(rel_ray_seg_dir))
+    --minetest.debug("u_dir_vec: " .. minetest.pos_to_string(u_dir_vec))
+    local ang = vector.angle(rel_ray_seg_dir, u_dir_vec)
+    --minetest.debug("turret.release(): continue2...")
+    if vector.are_co_directional(rel_ray_seg_dir, u_dir_vec) then
         return true
-    elseif math.abs(math.deg(ang)) < ANGLE_SPEED_RELEASE then
-        turret.delete_ray(pos)
-        turret.spread_ray(pos)
-        return true
-    else 
-        local pivot_vec = vector.cross(rel_ray_seg_pos, u_dir_vec)
-        local new_rseg_vec = vector.rotate_around_axis(rel_ray_seg_pos, pivot_vec, math.rad(ANGLE_SPEED_RELEASE))
+    else
+        local turn_step = (ang < math.rad(ANGLE_SPEED_RELEASE) and ang or math.rad(ANGLE_SPEED_RELEASE))
+        local pivot_vec = vector.cross(u_dir_vec, rel_ray_seg_dir)
+        local new_rseg_dir = vector.rotate_around_axis(rel_ray_seg_dir, pivot_vec, turn_step)
         
         turret.delete_ray(pos)
-        turret.spread_ray(pos, vector.rotation(u_dir_vec, new_rseg_vec))
+        turret.spread_ray(pos, vector.normalize(new_rseg_dir))
     end
 end
         
