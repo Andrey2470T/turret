@@ -146,8 +146,10 @@ turret.direct_ray_to_entity = function(pos)
              
     local new_ray_dir
     if ang < math.rad(ANGLE_SPEED_DIRECT) then
-        new_ray_dir = vector.rotate_around_axis(cur_ray_dir, pivot_vec, ang)
+        new_ray_dir = vector.normalize(rel_tpos)
         minetest.debug("ang: " .. ang)
+        minetest.debug("tpos_dir: " .. minetest.pos_to_string(vector.normalize(rel_tpos)))
+        minetest.debug("new_ray_dir: " .. minetest.pos_to_string(new_ray_dir))
         minetest.debug("ANGLE: " .. vector.angle(rel_tpos, new_ray_dir))
         
     else
@@ -191,9 +193,9 @@ turret.shoot = function(pos)
     local vel = vector.multiply(ray_dir, 10)
     
     local offset_horiz = {-0.2, 0.2}
-    local offset_vert = {-0.1, 0, 0.1}
+    local offset_vert = {-0.1, 0, 0.4}
     
-    local rand_offset = {x=offset_horiz[math.random(1, 2)], y=offset_vert[math.random(1, 2)]+0.175, z=0.1}
+    local rand_offset = {x=offset_horiz[math.random(1, 2)], y=offset_vert[math.random(1, 2)]+0.175, z=0}
     local yaw = vector.angle({x=0, y=0, z=1}, turret.get_turret_unitdir(pos))
     local res_pos = vector.add(pos, vector.rotate(rand_offset, {x=0, y=yaw, z=0}))
     

@@ -32,7 +32,7 @@ elseif minetest.get_modpath("luxury_decor") then
         recipe = {"luxury_decor:wolfram_wire_reel", "luxury_decor:plastic_sheet", "dye:red"}
     })
 else
-    error("From 'turret' mod: No one required dependency is avaialble!")
+    error("No one required dependency is avaialble! Please, enable \'basic_materials\' or \'luxury_decor\' to use this mod!")
 end
 
 minetest.register_craft({

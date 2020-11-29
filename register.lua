@@ -12,7 +12,7 @@ minetest.register_entity("turret:ray", {
 
 minetest.register_entity("turret:fiery_dart", {
     visual = "mesh",
-    visual_size = {x=25, y=25, z=25},
+    visual_size = {x=5, y=5, z=20},
     physical = true,
     pointable = false,
     mesh = "fiery_dart.b3d",
@@ -40,7 +40,7 @@ minetest.register_node("turret:turret_off", {
     description = "Turret",
     drawtype = "mesh",
     mesh = "turret2.b3d",
-    tiles = {"turret.png"},
+    tiles = {"turret_turret.png"},
     paramtype = "light",
     paramtype2 = "facedir",
     sunlight_propagates = true,
@@ -81,7 +81,7 @@ minetest.register_node("turret:turret_on", {
     description = "Turret",
     drawtype = "mesh",
     mesh = "turret_unfold2.b3d",
-    tiles = {"turret.png"},
+    tiles = {"turret_turret.png"},
     paramtype = "light",
     paramtype2 = "facedir",
     sunlight_propagates = true,
@@ -126,5 +126,5 @@ minetest.register_craftitem("turret:turret_eye", {
 
 minetest.register_craftitem("turret:red_led", {
     description = "Red LED",
-    inventory_image = "red_led.png"
+    inventory_image = "turret_red_led.png"
 }) 
